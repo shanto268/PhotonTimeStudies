@@ -1,26 +1,48 @@
 #!/usr/bin/env python
-# coding: utf-8
+from keras.optimizers import Adam
+from keras.callbacks import ModelCheckpoint, TensorBoard
+from keras.models import Sequential
+from keras.layers import Dense, Activation, Flatten, LSTM, SimpleRNN, Embedding
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error
+import seaborn as sb
+import pandas as pd
+import numpy as np
+import warnings
+warnings.filterwarnings('ignore')
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.simplefilter(action='ignore', category=FutureWarning)
+from xgboost import XGBRegressor
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+import os
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow import keras
+from keras.utils.vis_utils import plot_model
+try:
+    # pydot-ng is a fork of pydot that is better maintained.
+    import pydot_ng as pydot
+except ImportError:
+    # pydotplus is an improved version of pydot
+    try:
+        import pydotplus as pydot
+    except ImportError:
+        # Fall back on pydot if necessary.
+        try:
+            import pydot
+        except ImportError:
+            pydot = None
+import math
+import datetime
+from MuDataFrame import *
+from scipy import stats
+from sklearn.model_selection import train_test_split
 
-# # ML in MT
-# 
-# ## Photon Time Propagation
-# 
-# **Idea:**
-# 
-# 1) Set up NN that takes in `TDC` info of only parallel trays
-# 
-# 2) Target data would be the `diffTDC` in their respective orthogonal trays
-# 
-# 3) Initially, Training and Testing data would be samples from calibration
-# 
-#     a) Later, we can use data from other configurations for both
-#     
-# 4) Objective Function: `abs(predicted_diffTDC - actual_diffTDC)`
-# 
 
-# ### Train the Network
+# In[41]:
 
-# In[43]:
 
 
 def TrainNN(df_train,df_test, targetList, inputList,emissions,epoch=1):
@@ -101,10 +123,11 @@ def learning_schedule(epoch):
 def compile_NN(NN_model):
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         .001, decay_rate=.36, decay_steps=1e5)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+
+    opt = Adam(learning_rate=lr_schedule)
 
     NN_model.compile(loss=tf.keras.losses.MeanAbsolutePercentageError(),
-                     optimizer=optimizer,
+                     optimizer=opt,
                      metrics=['mse', 'mae', 'mape'])
 
     return NN_model
@@ -139,6 +162,8 @@ def PredictNN(df2,df1,targetList, inputList,dir):
 
     df_train['diffL2'] = target[0]
     df_train['diffL4'] = target[1]
+
+    df1, df2 = split()
     
     df2['diffL2_predicted'] = predictions[0]
     df2['diffL4_predicted'] = predictions[1]
@@ -180,61 +205,17 @@ def write_csv_file(df, dir, file_name='results.csv'):
 # In[ ]:
 
 
-from keras.callbacks import ModelCheckpoint, TensorBoard
-from keras.models import Sequential
-from keras.layers import Dense, Activation, Flatten, LSTM, SimpleRNN, Embedding
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
-import seaborn as sb
-import pandas as pd
-import numpy as np
-import warnings
-warnings.filterwarnings('ignore')
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.simplefilter(action='ignore', category=FutureWarning)
-from xgboost import XGBRegressor
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
-import os
-import matplotlib.pyplot as plt
-import tensorflow as tf
-from tensorflow import keras
-from keras.utils.vis_utils import plot_model
-try:
-    # pydot-ng is a fork of pydot that is better maintained.
-    import pydot_ng as pydot
-except ImportError:
-    # pydotplus is an improved version of pydot
-    try:
-        import pydotplus as pydot
-    except ImportError:
-        # Fall back on pydot if necessary.
-        try:
-            import pydot
-        except ImportError:
-            pydot = None
-import math
-from datetime import datetime
-from MuDataFrame import *
-from scipy import stats
-
-
-# In[41]:
-
 
 #loading the input data 
-mdfo_calib = MuDataFrame("/Volumes/mac_extended/Research/MT/proto1b/data_sets/calibration_new_set_up/calibration_new_set_up.csv")
-
+path2csv = "/lustre/work/sshanto/PhotonTimeML/"
+mdfo_calib = MuDataFrame("{}/data_sets/calibration_new_set_up/calibration_new_set_up.csv".format(path2csv))
 mdf_calib = mdfo_calib.events_df
-#keeping 4by4 events meants events that passed through all 4 detector trays
 mdfo_calib.keep4by4Events()
 
 
 # In[42]:
 
 
-from sklearn.model_selection import train_test_split
 
 all_df = mdfo_calib.events_df
 all_df.drop(columns=['Unnamed: 0', 'event_time','Run_Num','time_of_day','SmallCounter','speed','xx','yy'],inplace=True)
@@ -248,10 +229,10 @@ inputList = ['event_num','L1','R1', 'L3', 'R3', 'TopCounter', 'BottomCounter', '
 # In[ ]:
 
 
-date = datetime.today().strftime('%Y-%m-%d-%H_%M_%S')
+date = datetime.datetime.today().strftime('%Y-%m-%d-%H_%M_%S')
 emissions = "Run_{}".format(date)
 
-TrainNN(df_train, df_test, targetList, inputList, emissions, epoch=1)
+TrainNN(df_train_all, df_test_all, targetList, inputList, emissions, epoch=1)
 
 
 # Test the Network
@@ -259,5 +240,5 @@ TrainNN(df_train, df_test, targetList, inputList, emissions, epoch=1)
 # In[ ]:
 
 
-PredictNN(df2,df1,targetList, inputList, emissions)
+PredictNN(df_test_all,df_train_all,targetList, inputList, emissions)
 
