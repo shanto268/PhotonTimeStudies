@@ -139,11 +139,13 @@ def PredictNN(df2, df1, targetList, inputList, dir):
     target = [
         df_train[targetList[0]].to_numpy(), df_train[targetList[1]].to_numpy()
     ]
+
     df_train.drop(columns=targetList, axis=1, inplace=True)
 
     NN_model = Make_network(df_train.shape[1])
 
     file = find_min_weights(dir)
+
     min_loss = None
     pwd = os.getcwd()
 
@@ -157,7 +159,7 @@ def PredictNN(df2, df1, targetList, inputList, dir):
     df_train['diffL2'] = target[0]
     df_train['diffL4'] = target[1]
 
-    df1, df2 = split()
+    df2, df1 = pd.read_csv("train.csv"), pd.read_csv("test.csv")
 
     df2['diffL2_predicted'] = predictions[0]
     df2['diffL4_predicted'] = predictions[1]
@@ -175,8 +177,10 @@ def find_min_weights(directory):
     min_loss = None
     for root, dirs, files in os.walk(directory):
         for file in files:
+            print(file)
             if file.endswith('hdf5'):
                 splt = file.split('--')
+                print(splt)
                 if min_loss == None:
                     min_loss = float(splt[1][:-5])
                     min_file = os.path.join(root, file)
